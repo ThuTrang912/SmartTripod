@@ -1,0 +1,36 @@
+name: smarttripod
+description: A new Flutter project.
+
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 0.0.1+1
+
+environment:
+  sdk: '>=2.19.4 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.9.9+8
+  image_picker: ^0.8.4+2
+  yolov5_tflite: ^2.0.0
+  tflite_flutter: ^2.3.0
+  tflite_flutter_helper: ^2.3.0
+  yaml: ^3.1.0 # Phiên bản cụ thể hoặc phiên bản mới nhất
+
+
+
+  english_words: ^4.0.0
+  provider: ^6.0.0
+  video_player: ^2.8.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/gallery.png
