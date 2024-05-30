@@ -36,16 +36,26 @@ class RecogniteCamera extends StatefulWidget {
 
 class _RecogniteCameraState extends State<RecogniteCamera> {
   late CameraController _controller;
+  bool _isCameraInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
     _controller = CameraController(widget.camera, ResolutionPreset.medium);
-    _controller.initialize().then((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {});
+    try {
+      await _controller.initialize();
+      print('Camera initialized');
+    } catch (e) {
+      print('Error initializing camera: $e');
+    }
+    if (!mounted) return;
+
+    setState(() {
+      _isCameraInitialized = true;
     });
   }
 
@@ -56,6 +66,11 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
   }
 
   void _takePicture() async {
+    if (!_isCameraInitialized) {
+      print('Camera not initialized yet');
+      return;
+    }
+
     try {
       final XFile picture = await _controller.takePicture();
       Navigator.push(
@@ -71,9 +86,6 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_controller.value.isInitialized) {
-      return Container();
-    }
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color(0xFF333333),
@@ -91,9 +103,11 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
       ),
       body: Stack(
         children: [
-          Positioned.fill(
-            child: CameraPreview(_controller),
-          ),
+          if (_isCameraInitialized)
+            Positioned.fill(
+              child: CameraPreview(_controller),
+            ),
+          if (!_isCameraInitialized) Center(child: CircularProgressIndicator()),
           Positioned(
             bottom: 0,
             left: 0,
@@ -123,7 +137,7 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
                         ),
                       ),
                     ),
-                    SizedBox(width: 41),
+                    SizedBox(width: 40),
                     IconButton(
                       icon: Icon(Icons.arrow_forward),
                       color: Colors.white,
@@ -207,13 +221,13 @@ class CustomFunctionBar extends StatelessWidget {
               IconButton(
                 icon: Icon(Icons.flash_on_sharp, color: Colors.white),
                 onPressed: () {
-// Functionality for power button
+                  // Functionality for power button
                 },
               ),
               IconButton(
                 icon: Icon(Icons.flip_camera_ios_outlined, color: Colors.white),
                 onPressed: () {
-// Functionality for reverse screen button
+                  // Functionality for reverse screen button
                 },
               ),
             ],

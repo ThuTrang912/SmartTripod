@@ -1,0 +1,66 @@
+Việc xác thực bằng mật khẩu đã bị GitHub loại bỏ từ ngày 13 tháng 8 năm 2021. Để tiếp tục sử dụng Git, bạn cần sử dụng các phương thức xác thực hiện đại như token truy cập cá nhân (Personal Access Token - PAT) hoặc SSH key. Dưới đây là hướng dẫn để sử dụng token truy cập cá nhân:
+
+Tạo Personal Access Token trên GitHub
+Đăng nhập vào GitHub.
+Đi đến Cài đặt (Settings): Nhấp vào ảnh hồ sơ của bạn ở góc trên cùng bên phải và chọn "Settings".
+Đi đến Developer settings: Cuộn xuống và tìm mục "Developer settings" ở thanh bên trái.
+Tạo token mới:
+Chọn "Personal access tokens" trong "Developer settings".
+Nhấp vào "Generate new token".
+Đặt tên cho token và chọn các phạm vi (scopes) cần thiết. Ít nhất bạn cần chọn repo để có quyền truy cập vào kho lưu trữ riêng.
+Nhấp vào "Generate token" và lưu lại token này. Bạn chỉ có thể xem token một lần duy nhất.
+Sử dụng Personal Access Token với Git
+Đổi remote URL để sử dụng token truy cập cá nhân:
+
+Khi bạn được yêu cầu nhập username và password, hãy nhập token truy cập cá nhân thay vì mật khẩu. Tuy nhiên, để dễ sử dụng, bạn có thể cập nhật URL remote của mình để bao gồm token:
+
+sh
+コードをコピーする
+git remote set-url origin https://<YOUR_PERSONAL_ACCESS_TOKEN>@github.com/<YOUR_USERNAME>/<YOUR_REPO>.git
+Ví dụ, nếu token của bạn là ghp_abc123, username của bạn là ThuTrang912 và tên kho là SmartTripod:
+
+sh
+コードをコピーする
+git remote set-url origin https://ghp_abc123@github.com/ThuTrang912/SmartTripod.git
+Thực hiện lại lệnh git push:
+
+sh
+コードをコピーする
+git push origin master
+Cách sử dụng SSH Key (tuỳ chọn)
+Tạo SSH key:
+
+sh
+コードをコピーする
+ssh-keygen -t ed25519 -C "your_email@example.com"
+Nhấn Enter để chấp nhận đường dẫn mặc định và thiết lập mật khẩu bảo vệ (tùy chọn).
+
+Thêm SSH key vào tài khoản GitHub:
+
+Mở nội dung SSH public key:
+
+sh
+コードをコピーする
+cat ~/.ssh/id_ed25519.pub
+Sao chép nội dung của SSH public key.
+
+Truy cập GitHub, đi đến "Settings" > "SSH and GPG keys" > "New SSH key".
+
+Dán nội dung vào và lưu.
+
+Đổi remote URL để sử dụng SSH:
+
+sh
+コードをコピーする
+git remote set-url origin git@github.com:<YOUR_USERNAME>/<YOUR_REPO>.git
+Ví dụ:
+
+sh
+コードをコピーする
+git remote set-url origin git@github.com:ThuTrang912/SmartTripod.git
+Thực hiện lại lệnh git push:
+
+sh
+コードをコピーする
+git push origin master
+Với hai phương pháp trên, bạn có thể chọn cách phù hợp nhất với mình để tiếp tục làm việc với Git và GitHub.
