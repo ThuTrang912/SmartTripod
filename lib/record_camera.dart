@@ -5,6 +5,7 @@ import 'dart:io';
 import 'identified_object.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver/gallery_saver.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,10 +73,13 @@ class _RecordCameraState extends State<RecordCamera> {
   @override
   void dispose() {
     _controller.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   bool _isRecording = false; // Biến để kiểm tra xem đang quay video hay không
+  Timer? _timer;
+  Duration _recordingDuration = Duration.zero;
 
   void _toggleRecordVideo() {
     if (_isRecording) {
@@ -104,6 +108,14 @@ class _RecordCameraState extends State<RecordCamera> {
       print('Video recording started');
       setState(() {
         _isRecording = true;
+        _recordingDuration = Duration.zero;
+      });
+
+      _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+        setState(() {
+          _recordingDuration =
+              Duration(seconds: _recordingDuration.inSeconds + 1);
+        });
       });
     } catch (e) {
       print("Error starting video recording: $e");
@@ -120,11 +132,13 @@ class _RecordCameraState extends State<RecordCamera> {
       XFile video = await _controller.stopVideoRecording();
       print('Video recording stopped: ${video.path}');
 
-      // Add code to save the video to device storage and video album here
-      saveVideoToStorage(video.path);
+      _timer?.cancel();
       setState(() {
         _isRecording = false;
       });
+
+      // Add code to save the video to device storage and video album here
+      saveVideoToStorage(video.path);
     } catch (e) {
       print("Error stopping video recording: $e");
     }
@@ -153,6 +167,13 @@ class _RecordCameraState extends State<RecordCamera> {
 
     // Hiển thị thông báo hoặc cập nhật giao diện sau khi lưu video thành công
     print('Video saved to gallery: $newPath');
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    final twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    final twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
 
   @override
@@ -200,6 +221,22 @@ class _RecordCameraState extends State<RecordCamera> {
                     image: FileImage(File(_currentCroppedImagePath)),
                     fit: BoxFit.cover,
                   ),
+                ),
+              ),
+            ),
+          if (_isRecording)
+            Positioned(
+              top: 20,
+              left: 20,
+              child: Container(
+                padding: EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  _formatDuration(_recordingDuration),
+                  style: TextStyle(color: Colors.white, fontSize: 18),
                 ),
               ),
             ),

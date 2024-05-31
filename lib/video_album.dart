@@ -1,100 +1,123 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:smarttripod/video_player.dart';
+import 'dart:io';
 import 'package:video_player/video_player.dart';
+import 'package:path_provider/path_provider.dart';
 
-class VideoAlbum extends StatelessWidget {
+class VideoAlbum extends StatefulWidget {
+  @override
+  _VideoAlbumState createState() => _VideoAlbumState();
+}
+
+class _VideoAlbumState extends State<VideoAlbum> {
+  List<File> _videos = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVideos();
+  }
+
+  Future<void> _loadVideos() async {
+    final appDir = await getExternalStorageDirectory();
+    final savePath = appDir!.path + '/my_videos/';
+    final directory = Directory(savePath);
+
+    if (directory.existsSync()) {
+      setState(() {
+        _videos = directory
+            .listSync()
+            .where((item) => item.path.endsWith(".mp4"))
+            .map((item) => File(item.path))
+            .toList();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        title: Text("Video Album"),
+        title: Text('Video Album'),
       ),
-      body: ListView.builder(
-        itemCount: 5,
-        itemBuilder: (BuildContext context, int index) {
-          return VideoListItem(
-            videoUrl: "https://www.youtube.com/watch?v=voypO0L4knM",
-            title: "Day $index",
-            subtitle: "Time $index",
-          );
-        },
-      ),
+      body: _videos.isEmpty
+          ? Center(child: Text('No videos found'))
+          : ListView.builder(
+              itemCount: _videos.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  leading: Icon(Icons.videocam),
+                  title: Text(_videos[index].path.split('/').last),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VideoPlayerScreen(
+                          videoFile: _videos[index],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }
 
-class VideoListItem extends StatelessWidget {
-  final String videoUrl;
-  final String title;
-  final String subtitle;
+class VideoPlayerScreen extends StatefulWidget {
+  final File videoFile;
 
-  const VideoListItem({
-    Key? key,
-    required this.videoUrl,
-    required this.title,
-    required this.subtitle,
-  }) : super(key: key);
+  VideoPlayerScreen({required this.videoFile});
+
+  @override
+  _VideoPlayerScreenState createState() => _VideoPlayerScreenState();
+}
+
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(widget.videoFile)
+      ..initialize().then((_) {
+        setState(() {});
+        _controller.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: FutureBuilder<Uint8List?>(
-        future: _generateThumbnail(videoUrl),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Container(
-              width: 50,
-              height: 50,
-              color: Colors.grey,
-            );
-          }
-          if (snapshot.hasData) {
-            return Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: MemoryImage(snapshot.data!),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            );
-          }
-          return Container(
-            width: 50,
-            height: 50,
-            color: Colors.grey,
-          );
-        },
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Video Player'),
       ),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => VideoPlayerScreen(videoUrl: videoUrl),
-          ),
-        );
-      },
+      body: Center(
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+                aspectRatio: _controller.value.aspectRatio,
+                child: VideoPlayer(_controller),
+              )
+            : CircularProgressIndicator(),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            _controller.value.isPlaying
+                ? _controller.pause()
+                : _controller.play();
+          });
+        },
+        child: Icon(
+          _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+        ),
+      ),
     );
-  }
-
-  Future<Uint8List?> _generateThumbnail(String videoUrl) async {
-    final videoPlayerController = VideoPlayerController.network(videoUrl);
-    await videoPlayerController.initialize();
-    await videoPlayerController.play(); // Start playing to generate a frame
-    await Future.delayed(Duration(seconds: 1)); // Wait for 1 second
-    // final image = await videoPlayerController
-    //     .takeSnapshot(); // Capture the current frame as an image
-    await videoPlayerController.dispose();
-    // return image;
   }
 }
