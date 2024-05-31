@@ -3,6 +3,8 @@ import 'package:camera/camera.dart';
 import 'package:smarttripod/video_album.dart';
 import 'dart:io';
 import 'identified_object.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -73,26 +75,84 @@ class _RecordCameraState extends State<RecordCamera> {
     super.dispose();
   }
 
-  void _takePicture() async {
+  bool _isRecording = false; // Biến để kiểm tra xem đang quay video hay không
+
+  void _toggleRecordVideo() {
+    if (_isRecording) {
+      _stopVideoRecording();
+    } else {
+      _startVideoRecording();
+    }
+  }
+
+  void _recordVideo() {
+    if (_isRecording) {
+      _stopVideoRecording();
+    } else {
+      _startVideoRecording();
+    }
+  }
+
+  void _startVideoRecording() async {
     if (!_isCameraInitialized) {
       print('Camera not initialized yet');
       return;
     }
 
     try {
-      final XFile picture = await _controller.takePicture();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => IdentifiedObject(
-            imagePath: widget.croppedImagePath,
-            camera: widget.camera,
-          ),
-        ),
-      );
+      await _controller.startVideoRecording();
+      print('Video recording started');
+      setState(() {
+        _isRecording = true;
+      });
     } catch (e) {
-      print("Error taking picture: $e");
+      print("Error starting video recording: $e");
     }
+  }
+
+  void _stopVideoRecording() async {
+    if (!_isCameraInitialized) {
+      print('Camera not initialized yet');
+      return;
+    }
+
+    try {
+      XFile video = await _controller.stopVideoRecording();
+      print('Video recording stopped: ${video.path}');
+
+      // Add code to save the video to device storage and video album here
+      saveVideoToStorage(video.path);
+      setState(() {
+        _isRecording = false;
+      });
+    } catch (e) {
+      print("Error stopping video recording: $e");
+    }
+  }
+
+  Future<void> saveVideoToStorage(String videoPath) async {
+    final appDir =
+        await getExternalStorageDirectory(); // Lấy thư mục lưu trữ bên ngoài
+    final savePath = appDir!.path + '/my_videos/'; // Đường dẫn lưu video
+
+    // Tạo thư mục nếu chưa tồn tại
+    final directory = Directory(savePath);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+
+    // Di chuyển video đã quay vào thư mục lưu trữ
+    final File file = File(videoPath);
+    final String fileName =
+        'video_${DateTime.now().millisecondsSinceEpoch}.mp4';
+    final String newPath = savePath + fileName;
+    await file.copy(newPath);
+
+    // Lưu video vào album ảnh của thiết bị
+    await GallerySaver.saveVideo(newPath);
+
+    // Hiển thị thông báo hoặc cập nhật giao diện sau khi lưu video thành công
+    print('Video saved to gallery: $newPath');
   }
 
   @override
@@ -199,10 +259,14 @@ class _RecordCameraState extends State<RecordCamera> {
                 color: Colors.orange,
               ),
               child: IconButton(
-                  icon: Icon(Icons.fiber_manual_record_outlined),
-                  color: Colors.black,
-                  iconSize: 35,
-                  onPressed: _takePicture),
+                icon: Icon(_controller.value.isRecordingVideo
+                    ? Icons.stop
+                    : Icons.fiber_manual_record_outlined),
+                color: Colors.black,
+                iconSize: 35,
+                onPressed:
+                    _toggleRecordVideo, // Thay đổi hàm xử lý khi nhấn vào nút
+              ),
             ),
           ),
         ],
