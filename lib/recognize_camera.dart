@@ -76,7 +76,10 @@ class _RecognizeCameraState extends State<RecognizeCamera> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => IdentifiedObject(imagePath: picture.path),
+          builder: (context) => IdentifiedObject(
+            imagePath: picture.path,
+            camera: widget.camera,
+          ),
         ),
       );
     } catch (e) {

@@ -8,7 +8,9 @@ import 'record_camera.dart';
 class IdentifiedObject extends StatefulWidget {
   final String imagePath;
 
-  IdentifiedObject({Key? key, required this.imagePath}) : super(key: key);
+  IdentifiedObject(
+      {Key? key, required this.imagePath, required CameraDescription camera})
+      : super(key: key);
 
   @override
   _IdentifiedObjectState createState() => _IdentifiedObjectState();
@@ -87,14 +89,15 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
         _currentSize.height,
       );
 
-      ByteData? byteData =
-          await croppedImage.toByteData(format: ui.ImageByteFormat.png);
-      Uint8List imageBytes = byteData!.buffer.asUint8List();
+      ByteData byteData =
+          await croppedImage.toByteData(format: ui.ImageByteFormat.png) ??
+              ByteData(0);
+      Uint8List imageBytes = byteData.buffer.asUint8List();
 
       final croppedImagePath = '${widget.imagePath}_cropped.png';
       await File(croppedImagePath).writeAsBytes(imageBytes);
 
-      await Navigator.push(
+      await Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => RecordCamera(

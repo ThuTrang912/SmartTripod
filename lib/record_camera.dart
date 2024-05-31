@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:smarttripod/video_album.dart';
 import 'dart:io';
 import 'identified_object.dart';
 
@@ -42,11 +43,13 @@ class RecordCamera extends StatefulWidget {
 class _RecordCameraState extends State<RecordCamera> {
   late CameraController _controller;
   bool _isCameraInitialized = false;
+  String _currentCroppedImagePath = '';
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
+    _currentCroppedImagePath = widget.croppedImagePath;
   }
 
   Future<void> _initializeCamera() async {
@@ -70,27 +73,27 @@ class _RecordCameraState extends State<RecordCamera> {
     super.dispose();
   }
 
-  // void _takePicture() async {
-  //   if (!_isCameraInitialized) {
-  //     print('Camera not initialized yet');
-  //     return;
-  //   }
+  void _takePicture() async {
+    if (!_isCameraInitialized) {
+      print('Camera not initialized yet');
+      return;
+    }
 
-  //   try {
-  //     final XFile picture = await _controller.takePicture();
-  //     setState(() {
-  //       _croppedImagePath = picture.path; // Cập nhật đường dẫn hình ảnh đã chụp
-  //     });
-  //     Navigator.push(
-  //       context,
-  //       MaterialPageRoute(
-  //         builder: (context) => IdentifiedObject(imagePath: picture.path),
-  //       ),
-  //     );
-  //   } catch (e) {
-  //     print("Error taking picture: $e");
-  //   }
-  // }
+    try {
+      final XFile picture = await _controller.takePicture();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => IdentifiedObject(
+            imagePath: widget.croppedImagePath,
+            camera: widget.camera,
+          ),
+        ),
+      );
+    } catch (e) {
+      print("Error taking picture: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,7 +103,15 @@ class _RecordCameraState extends State<RecordCamera> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.of(context).pop();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => IdentifiedObject(
+                  imagePath: widget.croppedImagePath,
+                  camera: widget.camera,
+                ),
+              ),
+            );
           },
         ),
         title: Text(''),
@@ -116,7 +127,7 @@ class _RecordCameraState extends State<RecordCamera> {
               child: CameraPreview(_controller),
             ),
           if (!_isCameraInitialized) Center(child: CircularProgressIndicator()),
-          if (widget.croppedImagePath.isNotEmpty)
+          if (_currentCroppedImagePath.isNotEmpty)
             Positioned(
               top: 20,
               right: 20,
@@ -124,9 +135,9 @@ class _RecordCameraState extends State<RecordCamera> {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
+                  shape: BoxShape.circle,
                   image: DecorationImage(
-                    image: FileImage(File(widget.croppedImagePath)),
+                    image: FileImage(File(_currentCroppedImagePath)),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -146,7 +157,10 @@ class _RecordCameraState extends State<RecordCamera> {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        // Add functionality for gallery button
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => VideoAlbum()),
+                        );
                       },
                       child: Container(
                         width: 40,
@@ -188,7 +202,7 @@ class _RecordCameraState extends State<RecordCamera> {
                   icon: Icon(Icons.fiber_manual_record_outlined),
                   color: Colors.black,
                   iconSize: 35,
-                  onPressed: () {}),
+                  onPressed: _takePicture),
             ),
           ),
         ],
