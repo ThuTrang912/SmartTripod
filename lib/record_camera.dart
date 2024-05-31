@@ -5,7 +5,6 @@ import 'identified_object.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Lấy danh sách camera có sẵn trên thiết bị
   final cameras = await availableCameras();
   runApp(MyApp(cameras: cameras));
 }
@@ -20,21 +19,27 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Camera Demo',
       theme: ThemeData.dark(),
-      home: RecogniteCamera(camera: cameras[0]),
+      home: RecordCamera(
+        camera: cameras[0],
+        croppedImagePath: '',
+      ),
     );
   }
 }
 
-class RecogniteCamera extends StatefulWidget {
+class RecordCamera extends StatefulWidget {
   final CameraDescription camera;
+  final String croppedImagePath;
 
-  const RecogniteCamera({Key? key, required this.camera}) : super(key: key);
+  const RecordCamera(
+      {Key? key, required this.camera, required this.croppedImagePath})
+      : super(key: key);
 
   @override
-  _RecogniteCameraState createState() => _RecogniteCameraState();
+  _RecordCameraState createState() => _RecordCameraState();
 }
 
-class _RecogniteCameraState extends State<RecogniteCamera> {
+class _RecordCameraState extends State<RecordCamera> {
   late CameraController _controller;
   bool _isCameraInitialized = false;
 
@@ -65,24 +70,27 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
     super.dispose();
   }
 
-  void _takePicture() async {
-    if (!_isCameraInitialized) {
-      print('Camera not initialized yet');
-      return;
-    }
+  // void _takePicture() async {
+  //   if (!_isCameraInitialized) {
+  //     print('Camera not initialized yet');
+  //     return;
+  //   }
 
-    try {
-      final XFile picture = await _controller.takePicture();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => IdentifiedObject(imagePath: picture.path),
-        ),
-      );
-    } catch (e) {
-      print("Error taking picture: $e");
-    }
-  }
+  //   try {
+  //     final XFile picture = await _controller.takePicture();
+  //     setState(() {
+  //       _croppedImagePath = picture.path; // Cập nhật đường dẫn hình ảnh đã chụp
+  //     });
+  //     Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) => IdentifiedObject(imagePath: picture.path),
+  //       ),
+  //     );
+  //   } catch (e) {
+  //     print("Error taking picture: $e");
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +116,22 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
               child: CameraPreview(_controller),
             ),
           if (!_isCameraInitialized) Center(child: CircularProgressIndicator()),
+          if (widget.croppedImagePath.isNotEmpty)
+            Positioned(
+              top: 20,
+              right: 20,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  image: DecorationImage(
+                    image: FileImage(File(widget.croppedImagePath)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             bottom: 0,
             left: 0,
@@ -161,11 +185,10 @@ class _RecogniteCameraState extends State<RecogniteCamera> {
                 color: Colors.orange,
               ),
               child: IconButton(
-                icon: Icon(Icons.camera_alt_outlined),
-                color: Colors.black,
-                iconSize: 35,
-                onPressed: _takePicture,
-              ),
+                  icon: Icon(Icons.fiber_manual_record_outlined),
+                  color: Colors.black,
+                  iconSize: 35,
+                  onPressed: () {}),
             ),
           ),
         ],

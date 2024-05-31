@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'recognite_camera.dart';
+import 'package:smarttripod/recognize_camera.dart';
+import 'recognize_camera.dart';
 import 'package:camera/camera.dart';
 
 void main() {
@@ -103,7 +104,7 @@ class GetStartedScreen extends StatelessWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) =>
-                                      RecogniteCamera(camera: firstCamera),
+                                      RecognizeCamera(camera: firstCamera),
                                 ),
                               );
                             },
