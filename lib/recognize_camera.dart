@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:io';
 import 'identified_object.dart';
+import 'dart:ui' show lerpDouble;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

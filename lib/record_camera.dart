@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:smarttripod/video_album.dart';
 import 'dart:io';
 import 'identified_object.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,12 +50,77 @@ class _RecordCameraState extends State<RecordCamera> {
   late CameraController _controller;
   bool _isCameraInitialized = false;
   String _currentCroppedImagePath = '';
+  bool _hasStoragePermission = false;
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
+    // _requestStoragePermission();
+    _checkStoragePermission();
     _currentCroppedImagePath = widget.croppedImagePath;
+  }
+
+  Future<void> _checkStoragePermission() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    _hasStoragePermission = prefs.getBool('storage_permission') ?? false;
+    if (!_hasStoragePermission) {
+      _requestStoragePermission();
+    }
+  }
+
+  Future<void> _requestStoragePermission() async {
+    PermissionStatus status = await Permission.storage.request();
+    if (status.isGranted) {
+      print('Storage permission granted');
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('storage_permission', true);
+      _hasStoragePermission = true;
+    } else if (status.isDenied) {
+      print('Storage permission denied');
+      // Hiển thị thông báo yêu cầu người dùng cấp quyền
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Cấp quyền truy cập bộ nhớ'),
+            content: Text(
+                'Ứng dụng cần quyền truy cập bộ nhớ để lưu video vào album ảnh của thiết bị.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+                child: Text('Cấp quyền'),
+              ),
+            ],
+          );
+        },
+      );
+    } else if (status.isPermanentlyDenied) {
+      print('Storage permission permanently denied');
+      // Hiển thị thông báo hướng dẫn người dùng cấp quyền trong cài đặt ứng dụng
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Cấp quyền truy cập bộ nhớ'),
+            content: Text(
+                'Ứng dụng cần quyền truy cập bộ nhớ để lưu video vào album ảnh của thiết bị. Vui lòng cấp quyền trong cài đặt ứng dụng.'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+                child: Text('Mở cài đặt'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   Future<void> _initializeCamera() async {
@@ -256,7 +324,11 @@ class _RecordCameraState extends State<RecordCamera> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => VideoAlbum()),
+                          MaterialPageRoute(
+                            builder: (context) => VideoAlbum(
+                              refresh: true,
+                            ),
+                          ),
                         );
                       },
                       child: Container(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:video_player/video_player.dart';
+import 'dart:ui' show lerpDouble;
 
 class VideoPlayerScreen extends StatefulWidget {
   final File videoFile;

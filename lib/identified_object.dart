@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'record_camera.dart';
+import 'dart:ui' show lerpDouble;
 
 class IdentifiedObject extends StatefulWidget {
   final String imagePath;

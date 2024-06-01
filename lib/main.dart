@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:smarttripod/recognize_camera.dart';
 import 'recognize_camera.dart';
 import 'package:camera/camera.dart';
+import 'dart:ui' show lerpDouble;
+import 'package:smarttripod/video_album.dart';
 
 void main() {
   runApp(MyApp());
