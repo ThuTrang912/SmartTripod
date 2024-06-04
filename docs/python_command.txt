@@ -1,0 +1,14 @@
+python detect.py --weights yolov5s.pt --source 0                               # webcam
+                                               img.jpg                         # image
+                                               vid.mp4                         # video
+                                               screen                          # screenshot
+                                               path/                           # directory
+                                               list.txt                        # list of images
+                                               list.streams                    # list of streams
+                                               'path/*.jpg'                    # glob
+                                               'https://youtu.be/LNwODJXcvt4'  # YouTube
+                                               'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP stream
+
+
+python train.py --data coco.yaml --epochs 300 --weights yolov5s.pt --cfg yolov5s.yaml  --batch-size -1
+                                                                 

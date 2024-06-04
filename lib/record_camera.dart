@@ -1,19 +1,14 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
-
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:gallery_saver/gallery_saver.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:camera/camera.dart';
+import 'dart:io';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:gallery_saver/gallery_saver.dart';
+import 'dart:async';
 
-import 'identified_object.dart';
-import 'video_album.dart';
+import 'package:smarttripod/identified_object.dart';
+import 'package:smarttripod/video_album.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,78 +50,12 @@ class _RecordCameraState extends State<RecordCamera> {
   late CameraController _controller;
   bool _isCameraInitialized = false;
   String _currentCroppedImagePath = '';
-  bool _hasStoragePermission = false;
-  bool _objectDetected = false;
-  bool _isRecording = false;
-  Timer? _timer;
-  Duration _recordingDuration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
-    _checkStoragePermission();
     _currentCroppedImagePath = widget.croppedImagePath;
-  }
-
-  Future<void> _checkStoragePermission() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _hasStoragePermission = prefs.getBool('storage_permission') ?? false;
-    if (!_hasStoragePermission) {
-      _requestStoragePermission();
-    }
-  }
-
-  Future<void> _requestStoragePermission() async {
-    PermissionStatus status = await Permission.storage.request();
-    if (status.isGranted) {
-      print('Storage permission granted');
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('storage_permission', true);
-      _hasStoragePermission = true;
-    } else if (status.isDenied) {
-      print('Storage permission denied');
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('Cấp quyền truy cập bộ nhớ'),
-            content: Text(
-                'Ứng dụng cần quyền truy cập bộ nhớ để lưu video vào album ảnh của thiết bị.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  openAppSettings();
-                },
-                child: Text('Cấp quyền'),
-              ),
-            ],
-          );
-        },
-      );
-    } else if (status.isPermanentlyDenied) {
-      print('Storage permission permanently denied');
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('Cấp quyền truy cập bộ nhớ'),
-            content: Text(
-                'Ứng dụng cần quyền truy cập bộ nhớ để lưu video vào album ảnh của thiết bị. Vui lòng cấp quyền trong cài đặt ứng dụng.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  openAppSettings();
-                },
-                child: Text('Mở cài đặt'),
-              ),
-            ],
-          );
-        },
-      );
-    }
   }
 
   Future<void> _initializeCamera() async {
@@ -147,91 +76,49 @@ class _RecordCameraState extends State<RecordCamera> {
   @override
   void dispose() {
     _controller.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
-  // bool _isRecording = false;
-  // Timer? _timer;
-  // Duration _recordingDuration = Duration.zero;
+  bool _isRecording = false; // Biến để kiểm tra xem đang quay video hay không
+  Timer? _timer;
+  Duration _recordingDuration = Duration.zero;
 
-  void _recordVideo() async {
+  void _toggleRecordVideo() {
+    if (_isRecording) {
+      _stopVideoRecording();
+    } else {
+      _startVideoRecording();
+    }
+  }
+
+  void _recordVideo() {
+    if (_isRecording) {
+      _stopVideoRecording();
+    } else {
+      _startVideoRecording();
+    }
+  }
+
+  void _startVideoRecording() async {
     if (!_isCameraInitialized) {
       print('Camera not initialized yet');
       return;
     }
 
-    // Check if cropped image is available
-    if (_currentCroppedImagePath.isNotEmpty) {
-      // Send cropped image to YOLOv5 server for detection
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse(' http://10.200.5.66/detect'),
-      );
-      request.files.add(
-        http.MultipartFile.fromPath(
-          'image',
-          _currentCroppedImagePath,
-          filename: 'cropped.png',
-        ) as http.MultipartFile,
-      );
-      var response = await request.send();
-      var responseData = await response.stream.bytesToString();
-
-      var detections = json.decode(responseData)['detections'];
-
-      // Check if object is detected
-      setState(() {
-        _objectDetected = detections.isNotEmpty;
-      });
-
-      if (_objectDetected) {
-        // Start recording video if object is detected
-        _startVideoRecording();
-
-        // Timer to check if object is still in frame
-        _timer = Timer.periodic(Duration(seconds: 1), (timer) async {
-          // Capture frame from camera
-          XFile imageFile = await _controller.takePicture();
-
-          // Send captured frame to YOLOv5 server for detection
-          var request = http.MultipartRequest(
-            'POST',
-            Uri.parse('http://10.200.5.66:5000/detect'),
-          );
-          request.files.add(
-            http.MultipartFile.fromPath(
-              'image',
-              imageFile.path,
-              filename: 'frame.png',
-            ) as http.MultipartFile,
-          );
-          var response = await request.send();
-          var responseData = await response.stream.bytesToString();
-
-          var frameDetections = json.decode(responseData)['detections'];
-
-          // Check if object is still detected
-          setState(() {
-            _objectDetected = frameDetections.isNotEmpty;
-          });
-
-          if (!_objectDetected) {
-            // Stop recording if object is no longer detected
-            _stopVideoRecording();
-          }
-        });
-      }
-    } else {
-      print('No cropped image available');
-    }
-  }
-
-  void _startVideoRecording() async {
     try {
       await _controller.startVideoRecording();
       print('Video recording started');
       setState(() {
         _isRecording = true;
+        _recordingDuration = Duration.zero;
+      });
+
+      _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+        setState(() {
+          _recordingDuration =
+              Duration(seconds: _recordingDuration.inSeconds + 1);
+        });
       });
     } catch (e) {
       print("Error starting video recording: $e");
@@ -239,6 +126,11 @@ class _RecordCameraState extends State<RecordCamera> {
   }
 
   void _stopVideoRecording() async {
+    if (!_isCameraInitialized) {
+      print('Camera not initialized yet');
+      return;
+    }
+
     try {
       XFile video = await _controller.stopVideoRecording();
       print('Video recording stopped: ${video.path}');
@@ -248,17 +140,35 @@ class _RecordCameraState extends State<RecordCamera> {
         _isRecording = false;
       });
 
-      // Add code to save the video to device storage and video album here
-      saveVideoToStorage(video.path);
+      // Crop image and send to YOLOv5 server
+      if (_currentCroppedImagePath.isNotEmpty) {
+        String videoUrl =
+            await sendImageToYOLOv5Server(File(_currentCroppedImagePath));
+        print('Received video URL: $videoUrl');
+      }
     } catch (e) {
       print("Error stopping video recording: $e");
+    }
+  }
+
+  Future<String> sendImageToYOLOv5Server(File imageFile) async {
+    final url = 'http://10.200.5.66:5000'; // Replace with your server URL
+    var request = http.MultipartRequest('POST', Uri.parse(url));
+    request.files
+        .add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+    var response = await request.send();
+    if (response.statusCode == 200) {
+      var responseData = await response.stream.bytesToString();
+      return responseData;
+    } else {
+      throw Exception('Failed to send image to YOLOv5 server');
     }
   }
 
   Future<void> saveVideoToStorage(String videoPath) async {
     final appDir = await getExternalStorageDirectory();
     final savePath = appDir!.path + '/my_videos/';
-
     final directory = Directory(savePath);
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -362,11 +272,7 @@ class _RecordCameraState extends State<RecordCamera> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => VideoAlbum(
-                              refresh: true,
-                            ),
-                          ),
+                          MaterialPageRoute(builder: (context) => VideoAlbum()),
                         );
                       },
                       child: Container(
@@ -411,7 +317,8 @@ class _RecordCameraState extends State<RecordCamera> {
                     : Icons.fiber_manual_record_outlined),
                 color: Colors.black,
                 iconSize: 35,
-                onPressed: _recordVideo,
+                onPressed:
+                    _toggleRecordVideo, // Thay đổi hàm xử lý khi nhấn vào nút
               ),
             ),
           ),
