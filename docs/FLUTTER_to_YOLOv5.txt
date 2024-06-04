@@ -1,13 +1,102 @@
+Tôi sẽ giúp bạn tích hợp YOLOv5 trong ứng dụng Flutter để nhận dạng hình ảnh từ camera. Để thực hiện điều này, bạn cần phải triển khai phần tải trọng số mô hình và phần nhận dạng hình ảnh bằng Python, sau đó gọi API này từ Flutter.
+
+Dưới đây là hướng dẫn chi tiết:
+
+1. Thiết lập môi trường Python
+Tải trọng số mô hình YOLOv5
+Trước tiên, bạn cần tải trọng số mô hình YOLOv5 và thiết lập một API đơn giản để phục vụ nhận dạng hình ảnh.
+
+Tạo một thư mục mới cho server Python và cài đặt các thư viện cần thiết:
+
+sh
+コードをコピーする
+mkdir yolo_server
+cd yolo_server
+python -m venv venv
+source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+pip install flask torch torchvision
+Tải trọng số mô hình YOLOv5:
+
+sh
+コードをコピーする
+# Tải trọng số mô hình YOLOv5s
+wget https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5s.pt -O yolov5s.pt
+Tạo một tệp server.py với nội dung sau:
+
+python
+コードをコピーする
+from flask import Flask, request, jsonify
+import torch
+from PIL import Image
+import io
+
+app = Flask(__name__)
+
+# Tải mô hình YOLOv5
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=False)
+model.load_state_dict(torch.load('yolov5s.pt')['model'].state_dict())
+
+@app.route('/detect', methods=['POST'])
+def detect():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+    
+    file = request.files['image']
+    img = Image.open(io.BytesIO(file.read()))
+    
+    # Perform inference
+    results = model(img)
+    detections = results.xyxy[0].numpy()  # xyxy format
+    
+    return jsonify(detections.tolist())
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+Khởi động server:
+
+sh
+コードをコピーする
+python server.py
+
+((venv) C:\Users\2220047\OneDrive - yamaguchigakuen\Desktop\Flutter\yolo_server>python app.py
+Using cache found in C:\Users\2220047/.cache\torch\hub\ultralytics_yolov5_master
+YOLOv5  2024-5-30 Python-3.9.18 torch-2.3.0+cpu CPU
+
+Fusing layers...
+YOLOv5s_v6 summary: 213 layers, 7225885 parameters, 0 gradients
+Adding AutoShape...
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.16.10.138:5000   (===> đây là URL của API)
+Press CTRL+C to quit)
+
+
+
+2. Tích hợp với Flutter
+Cập nhật pubspec.yaml để thêm các dependencies:
+
+yaml
+コードをコピーする
+dependencies:
+  flutter:
+    sdk: flutter
+  camera: ^0.9.4+5
+  http: ^0.13.4
+Cập nhật mã nguồn Flutter để gửi hình ảnh đến server và nhận kết quả:
+
+dart
+コードをコピーする
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:io';
-import 'identified_object.dart';
-import 'dart:ui' show lerpDouble;
-import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Lấy danh sách camera có sẵn trên thiết bị
   final cameras = await availableCameras();
   runApp(MyApp(cameras: cameras));
 }
@@ -22,42 +111,33 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Camera Demo',
       theme: ThemeData.dark(),
-      home: RecognizeCamera(camera: cameras[0]),
+      home: RecogniteCamera(camera: cameras[0]),
     );
   }
 }
 
-class RecognizeCamera extends StatefulWidget {
+class RecogniteCamera extends StatefulWidget {
   final CameraDescription camera;
 
-  const RecognizeCamera({Key? key, required this.camera}) : super(key: key);
+  const RecogniteCamera({Key? key, required this.camera}) : super(key: key);
 
   @override
-  _RecognizeCameraState createState() => _RecognizeCameraState();
+  _RecogniteCameraState createState() => _RecogniteCameraState();
 }
 
-class _RecognizeCameraState extends State<RecognizeCamera> {
+class _RecogniteCameraState extends State<RecogniteCamera> {
   late CameraController _controller;
-  bool _isCameraInitialized = false;
+  bool _isDetecting = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
-  }
-
-  Future<void> _initializeCamera() async {
     _controller = CameraController(widget.camera, ResolutionPreset.medium);
-    try {
-      await _controller.initialize();
-      print('Camera initialized');
-    } catch (e) {
-      print('Error initializing camera: $e');
-    }
-    if (!mounted) return;
-
-    setState(() {
-      _isCameraInitialized = true;
+    _controller.initialize().then((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
     });
   }
 
@@ -67,47 +147,50 @@ class _RecognizeCameraState extends State<RecognizeCamera> {
     super.dispose();
   }
 
-  Future<void> _requestStoragePermission() async {
-    var status = await Permission.storage.status;
-    if (!status.isGranted) {
-      var result = await Permission.storage.request();
-      if (result.isGranted) {
-        print('Storage permission granted');
-      } else {
-        print('Storage permission denied');
-        return;
-      }
-    } else {
-      print('Storage permission already granted');
-    }
-  }
-
-  void _takePicture() async {
-    if (!_isCameraInitialized) {
-      print('Camera not initialized yet');
-      return;
-    }
-
-    await _requestStoragePermission();
+  Future<void> _takePicture() async {
+    if (_isDetecting) return;
 
     try {
+      setState(() {
+        _isDetecting = true;
+      });
+
       final XFile picture = await _controller.takePicture();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => IdentifiedObject(
-            imagePath: picture.path,
-            camera: widget.camera,
+      final File imageFile = File(picture.path);
+
+      // Gửi hình ảnh đến server để nhận dạng
+      final request = http.MultipartRequest('POST', Uri.parse('http://<YOUR_SERVER_IP>:5000/detect'));
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseData = await response.stream.bytesToString();
+        final detections = jsonDecode(responseData);
+
+        print('Detections: $detections');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => IdentifiedObject(imagePath: picture.path, detections: detections),
           ),
-        ),
-      );
+        );
+      } else {
+        print('Error: ${response.statusCode}');
+      }
     } catch (e) {
       print("Error taking picture: $e");
+    } finally {
+      setState(() {
+        _isDetecting = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_controller.value.isInitialized) {
+      return Container();
+    }
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color(0xFF333333),
@@ -125,11 +208,9 @@ class _RecognizeCameraState extends State<RecognizeCamera> {
       ),
       body: Stack(
         children: [
-          if (_isCameraInitialized)
-            Positioned.fill(
-              child: CameraPreview(_controller),
-            ),
-          if (!_isCameraInitialized) Center(child: CircularProgressIndicator()),
+          Positioned.fill(
+            child: CameraPreview(_controller),
+          ),
           Positioned(
             bottom: 0,
             left: 0,
@@ -159,7 +240,7 @@ class _RecognizeCameraState extends State<RecognizeCamera> {
                         ),
                       ),
                     ),
-                    SizedBox(width: 40),
+                    SizedBox(width: 41),
                     IconButton(
                       icon: Icon(Icons.arrow_forward),
                       color: Colors.white,
@@ -259,3 +340,13 @@ class CustomFunctionBar extends StatelessWidget {
     );
   }
 }
+
+class IdentifiedObject extends StatelessWidget {
+  final String imagePath;
+  final List<dynamic> detections;
+
+  const IdentifiedObject({Key? key, required this.imagePath, required this.detections}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return

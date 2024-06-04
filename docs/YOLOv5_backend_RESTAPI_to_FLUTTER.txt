@@ -1,3 +1,66 @@
+Để tích hợp YOLOv5 vào ứng dụng Flutter và sử dụng nó để nhận diện hình ảnh, chúng ta cần một vài bước chuẩn bị:
+
+1.Tích hợp YOLOv5 vào Flutter: Flutter không thể trực tiếp chạy mô hình YOLOv5 vì YOLOv5 thường chạy trên Python. Do đó, bạn cần một dịch vụ backend (REST API) để xử lý mô hình YOLOv5.
+2.Tạo backend service: Sử dụng Flask hoặc FastAPI để tạo API nhận hình ảnh từ Flutter, xử lý bằng YOLOv5 và trả về kết quả.
+3.Gửi hình ảnh từ Flutter đến API: Sau khi xử lý hình ảnh, gửi hình ảnh đến API và nhận kết quả nhận diện.
+4.Hiển thị kết quả trong Flutter: Dựa vào kết quả nhận diện, hiển thị lát bánh mì (hoặc bất kỳ biểu tượng nào bạn muốn) trên ảnh.
+
+
+
+------------------------------------------------------------------------------------------------------------------------------------
+
+1.Backend API (Python với Flask và YOLOv5)
+Trước tiên, chúng ta cần tạo một API sử dụng Flask để xử lý YOLOv5. Giả sử bạn đã cài đặt YOLOv5 và các thư viện cần thiết.
+
+Flask API với YOLOv5
+
+# app.py
+
+from flask import Flask, request, jsonify
+import torch
+from PIL import Image
+import io
+
+app = Flask(__name__)
+
+# Load YOLOv5 model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
+
+@app.route('/detect', methods=['POST'])
+def detect():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image file'}), 400
+
+    image_file = request.files['image']
+    image_bytes = image_file.read()
+    image = Image.open(io.BytesIO(image_bytes))
+
+    # Perform inference
+    results = model(image)
+    detections = results.pandas().xyxy[0].to_json(orient="records")
+    
+    return jsonify({'detections': detections})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+Chạy Flask API:
+
+
+
+
+sh
+
+python app.py
+
+
+
+
+2.Flutter: Gửi hình ảnh đến API và nhận kết quả
+Cập nhật IdentifiedObject để gửi hình ảnh đã cắt đến API và xử lý kết quả.
+
+Flutter Code
+dart
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -10,9 +73,9 @@ import 'dart:ui' show lerpDouble;
 
 class IdentifiedObject extends StatefulWidget {
   final String imagePath;
-  final CameraDescription camera;
 
-  IdentifiedObject({Key? key, required this.imagePath, required this.camera})
+  IdentifiedObject(
+      {Key? key, required this.imagePath, required CameraDescription camera})
       : super(key: key);
 
   @override
@@ -24,15 +87,15 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
   Offset _currentPosition = Offset(100, 100);
   Size _currentSize = Size(200, 200);
   late List<CameraDescription> cameras;
-  bool _objectDetected = false;
-  late Uint8List _imageBytes;
-  List<Map<String, dynamic>> _detections = []; // Define _detections variable
 
   GlobalKey _imageKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    _initialPosition = Offset(100, 100);
+    _currentPosition = Offset(100, 100);
+    _currentSize = Size(200, 200);
     _initializeCameras();
   }
 
@@ -49,7 +112,6 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
       _initialPosition = details.localPosition;
       _currentPosition = details.localPosition;
       _currentSize = Size.zero;
-      _detections = []; // Reset _detections to empty
     });
   }
 
@@ -61,10 +123,6 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
         (_currentPosition.dy - _initialPosition.dy).abs(),
       );
     });
-  }
-
-  void _onPanEnd(DragEndDetails details) {
-    _sendImageForDetection();
   }
 
   Future<void> _sendImageForDetection() async {
@@ -100,96 +158,47 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
       ByteData byteData =
           await croppedImage.toByteData(format: ui.ImageByteFormat.png) ??
               ByteData(0);
-      _imageBytes = byteData.buffer.asUint8List();
+      Uint8List imageBytes = byteData.buffer.asUint8List();
+
+      final croppedImagePath = '${widget.imagePath}_cropped.png';
+      await File(croppedImagePath).writeAsBytes(imageBytes);
 
       // Send cropped image to YOLOv5 API for detection
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://10.200.5.66:5000/detect'),
+        Uri.parse('http://your_backend_api/detect'),
       );
       request.files.add(
         http.MultipartFile.fromBytes(
           'image',
-          _imageBytes,
+          imageBytes,
           filename: 'cropped.png',
         ),
       );
       var response = await request.send();
       var responseData = await response.stream.bytesToString();
 
-      // Parse JSON string
-      var detectionsString = json.decode(responseData)['detections'];
-      var detections = json.decode(detectionsString);
-
-      // Store detection information
-      List<Map<String, dynamic>> objectDetections = [];
-      for (var detection in detections) {
-        objectDetections.add({
-          'name': detection['name'],
-          'x': detection['x'],
-          'y': detection['y'],
-          'width': detection['width'],
-          'height': detection['height'],
-          'confidence': detection['confidence'],
-        });
-      }
+      var detections = json.decode(responseData)['detections'];
 
       // Check if object is detected
-      setState(() {
-        _objectDetected = detections.isNotEmpty;
-        _detections = objectDetections;
-      });
-
-      if (_detections.length == 1) {
-        // Show alert if object is detected
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Object Detected'),
-            content: Text('An object was detected in the selected area.'),
-            actions: [
-              TextButton(
-                child: Text('OK'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      } else if (_detections.length > 1) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Select Only 1 Object'),
-            content: Text('Please select an area containing only 1 object.'),
-            actions: [
-              TextButton(
-                child: Text('Select Again'),
-                onPressed: () {
-                  setState(() {
-                    _currentPosition = _initialPosition;
-                    _currentSize = Size.zero;
-                    _detections = [];
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-              TextButton(
-                child: Text('OK'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
+      if (detections.isNotEmpty) {
+        // Redirect to recognized camera page with detected coordinates
+        await Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RecordCamera(
+              camera: cameras[0],
+              croppedImagePath: croppedImagePath,
+            ),
           ),
         );
       } else {
+        // Show error message if no object detected
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: Text('No Object Detected'),
-            content: Text('No object was detected in the selected area.'),
+            content: Text('No objects were detected in the selected area.'),
             actions: [
               TextButton(
                 child: Text('OK'),
@@ -227,56 +236,6 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
     return await recorder.endRecording().toImage(width.toInt(), height.toInt());
   }
 
-  void _onCheckPressed() async {
-    if (_detections.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Unable to Verify Object'),
-          content: Text('Please select at least 1 object accurately.'),
-          actions: [
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        ),
-      );
-    } else if (_detections.length > 1) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Unable to Verify Object'),
-          content: Text(
-              'Please select the area containing only 1 object accurately.'),
-          actions: [
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        ),
-      );
-    } else {
-      final croppedImagePath = '${widget.imagePath}_cropped.png';
-      await File(croppedImagePath).writeAsBytes(_imageBytes);
-
-      await Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RecordCamera(
-            camera: cameras[0],
-            croppedImagePath: croppedImagePath,
-          ),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -301,7 +260,6 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
               child: GestureDetector(
                 onPanStart: _onPanStart,
                 onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
                 child: Image.file(
                   File(widget.imagePath),
                   fit: BoxFit.cover,
@@ -320,36 +278,6 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
               ),
             ),
           ),
-          for (var detection in _detections)
-            Positioned(
-              top: detection['y'],
-              left: detection['x'],
-              child: Container(
-                padding: EdgeInsets.all(4.0),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(4.0),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
-                      size: 16.0,
-                    ),
-                    SizedBox(width: 4.0),
-                    Text(
-                      detection['name'],
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           Positioned(
             bottom: 0,
             left: 0,
@@ -363,7 +291,7 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
                   IconButton(
                     icon: Icon(Icons.check),
                     color: Colors.white,
-                    onPressed: _onCheckPressed,
+                    onPressed: _sendImageForDetection,
                   ),
                 ],
               ),
@@ -374,3 +302,10 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
     );
   }
 }
+Giải thích:
+Flask API: Flask API sẽ nhận hình ảnh từ Flutter, xử lý bằng YOLOv5 và trả về kết quả nhận diện.
+Flutter:
+Gửi hình ảnh đã cắt đến API.
+Nhận kết quả và hiển thị lát bánh mì nếu đối tượng được nhận diện.
+Chuyển hướng đến trang tiếp theo nếu có đối tượng được nhận diện.
+Lưu ý rằng bạn cần cập nhật URL của API (http://your_backend_api/detect) với địa chỉ thực tế của backend bạn đã triển khai.
