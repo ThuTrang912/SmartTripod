@@ -8,6 +8,8 @@ import 'dart:convert';
 import 'record_camera.dart';
 import 'dart:ui' show lerpDouble;
 
+import 'package:smarttripod/constants.dart';
+
 class IdentifiedObject extends StatefulWidget {
   final String imagePath;
   final CameraDescription camera;
@@ -105,7 +107,7 @@ class _IdentifiedObjectState extends State<IdentifiedObject> {
       // Send cropped image to YOLOv5 API for detection
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://10.200.5.66:5000/detect'),
+        Uri.parse(Constants.yoloServerUrl + '/detect'),
       );
       request.files.add(
         http.MultipartFile.fromBytes(

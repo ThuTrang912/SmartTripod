@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:gallery_saver/gallery_saver.dart';
 import 'dart:async';
 
+import 'package:smarttripod/constants.dart';
 import 'package:smarttripod/identified_object.dart';
 import 'package:smarttripod/video_album.dart';
 
@@ -152,7 +153,7 @@ class _RecordCameraState extends State<RecordCamera> {
   }
 
   Future<String> sendImageToYOLOv5Server(File imageFile) async {
-    final url = 'http://10.200.5.66:5000'; // Replace with your server URL
+    final url = Constants.yoloServerUrl; // Replace with your server URL
     var request = http.MultipartRequest('POST', Uri.parse(url));
     request.files
         .add(await http.MultipartFile.fromPath('image', imageFile.path));
