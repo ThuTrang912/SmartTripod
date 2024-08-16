@@ -22,6 +22,7 @@ The UI design for the app is being created using Figma. The design files can be 
 https://www.figma.com/design/znLDSuRMAid6jfv1tXcZPA/SmartTripod?node-id=0-1&t=0K0Qww9xEszx6g3j-0 
 
 ![Ảnh chụp màn hình 2024-06-28 152703](https://github.com/ThuTrang912/SmartTripod/assets/129019073/47a51dbe-fc5b-438d-9f1b-db00d1b2904d)
+![Frame 1146(2)](https://github.com/user-attachments/assets/7e1d381c-5d22-425c-8d0f-a1a3c5f0aefe)
 
 
 
