@@ -54,6 +54,10 @@ The app can be run using the `flutter run` command. Testing is being performed t
 ## Packaging and Deploying
 Once the app is complete, it will be packaged and deployed to the respective app stores (Google Play Store and Apple App Store).
 
+## system configuration diagram
+![Ảnh chụp màn hình 2024-07-16 160904](https://github.com/user-attachments/assets/0a048775-385c-4556-8208-456c05455817)
+
+
 ## References
 - [Flutter Documentation](https://flutter.dev/docs)
 - [Dart Documentation](https://dart.dev/guides)
