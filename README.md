@@ -51,10 +51,7 @@ The object tracking functionality is currently being implemented. The code for t
 ## Running and Testing the App
 The app can be run using the `flutter run` command. Testing is being performed to ensure the object detection and tracking features are working as expected.
 
-## Packaging and Deploying
-Once the app is complete, it will be packaged and deployed to the respective app stores (Google Play Store and Apple App Store).
-
-## system configuration diagram
+## Packaging and DeSystem configuration diagram
 ![Ảnh chụp màn hình 2024-07-16 160904](https://github.com/user-attachments/assets/0a048775-385c-4556-8208-456c05455817)
 
 
